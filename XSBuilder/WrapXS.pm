@@ -8,6 +8,7 @@ use constant GvSHARED => 0; #$^V gt v5.7.0;
 use File::Spec ;
 use ExtUtils::XSBuilder::TypeMap ();
 use ExtUtils::XSBuilder::MapUtil qw(function_table structure_table callback_table);
+use ExtUtils::XSBuilder::PODTemplate ;
 use File::Path qw(rmtree mkpath);
 use Cwd qw(fastcwd);
 use Data::Dumper;
@@ -125,6 +126,18 @@ returns new typemap object
 # ---------------
 
 sub new_typemap  { ExtUtils::XSBuilder::TypeMap->new (shift) }
+
+# ============================================================================
+=pod
+
+=head2 new_podtemplate (o)
+
+returns new podtemplate object
+
+=cut
+# ---------------
+
+sub new_podtemplate { ExtUtils::XSBuilder::PODTemplate->new }
 
 # ============================================================================
 =pod
@@ -515,7 +528,7 @@ sub get_function {
 
     my %retargs = map { $_->{name} => $_ } @$retargs ;
 
-    #print "get_function: ", Data::Dumper -> Dump([$func]), "\n" ;
+    print "get_function: ", Data::Dumper -> Dump([$func]), "\n" ;
     #eg ap_fputs()
     if ($name =~ s/^DEFINE_//) {
         $func->{name} =~ s/^DEFINE_//;
@@ -812,7 +825,21 @@ void ${cclass}_new_init (pTHX_ $cclass  obj, SV * item, int overwrite) {
     else if (SvTYPE(item) == SVt_PVHV) {
 ] ;
     foreach my $e (@{ $struct->{elts} }) {
-        if (($e -> {class} !~ /::/) || ($e -> {rtype} =~ /\*$/)) {
+        if ($e -> {name} =~ /^(.*?)\[(.*?)\]$/) {
+            my $strncpy = $2 ;
+            my $name = $1 ;
+            my $perl_name ;
+            ($perl_name = $e -> {perl_name}) =~ s/\[.*?\]$// ;
+            $c_code .= "        if ((tmpsv = hv_fetch((HV *)item, \"$perl_name\", sizeof(\"$perl_name\") - 1, 0)) || overwrite) {\n" ;
+            $c_code .= "            STRLEN l = 0;\n" ;
+            $c_code .= "            if (tmpsv) {\n" ;
+            $c_code .= "                char * s = SvPV(*tmpsv,l) ;\n" ;
+            $c_code .= "                if (l > ($strncpy)-1) l = ($strncpy) - 1 ;\n" ;
+            $c_code .= "                strncpy(obj->$name, s, l) ;\n" ;
+            $c_code .= "            }\n" ;
+            $c_code .= "            obj->$name\[l] = '\\0';\n" ;
+            $c_code .= "        }\n" ;
+        } elsif (($e -> {class} !~ /::/) || ($e -> {rtype} =~ /\*$/)) {
             $c_code .= "        if ((tmpsv = hv_fetch((HV *)item, \"$e->{perl_name}\", sizeof(\"$e->{perl_name}\") - 1, 0)) || overwrite) {\n" ;
 
             if ($e -> {malloc}) {
@@ -950,6 +977,7 @@ sub get_structures {
                 my $preinit = "/*nada*/";
                 my $address = '' ;
                 my $rdonly = 0 ;
+                my $strncpy ;
                 if ($e->{class} eq 'PV' and $val ne 'val') {
                     $type_in =~ s/char/char_len/;
                     $preinit = "STRLEN val_len;";
@@ -957,7 +985,14 @@ sub get_structures {
                     # an inlined struct is read only
                     $rdonly = 1 ;
                     $address = '&' ;
-                 }
+                } elsif ($name =~ /^(.*?)\[(.*?)\]$/) {
+                    $strncpy = $2 ;
+                    $name = $1 ;
+                    $perl_name =~ s/\[.*?\]$// ;
+                    $type      = 'char *' ;
+                    $type_in   = 'char *' ;
+                    $cast      = 'char *' ;
+                }
 
                 my $attrs = $self->attrs($name);
 
@@ -989,6 +1024,10 @@ EOF
                     print $@ if ($@) ;
                     $code .= '        ' . $expr . ";\n" ;
                 }
+                elsif ($strncpy) {
+                    $code .= "        strncpy(obj->$name, ($cast) $val, ($strncpy) - 1) ;\n" ;
+                    $code .= "        obj->$name\[($strncpy)-1] = '\\0';\n" ;
+                }                             
                 else {
                     $code .= "        obj->$name = ($cast) $val;\n" ;
                 }                             
@@ -1516,7 +1555,8 @@ sub write_typemap {
         }
     }
 
-    my $typemap_code = $typemap -> typemap_code ;
+    my $cnvprefix =  $self -> my_cnv_prefix ;
+    my $typemap_code = $typemap -> typemap_code ($cnvprefix);
 
     
     foreach my $dir ('INPUT', 'OUTPUT') {

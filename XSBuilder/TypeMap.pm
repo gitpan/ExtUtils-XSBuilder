@@ -196,7 +196,7 @@ sub can_map {
 
 sub map_arg {
     my($self, $arg) = @_;
-    #print Dumper ($arg), 'map ', $self->map_type($arg->{type}), "\n" ;
+    print Dumper ($arg), 'map ', $self->map_type($arg->{type}), "\n" ;
     return {
        name    => $arg->{name},
        default => $arg->{default},
@@ -227,7 +227,14 @@ sub map_args {
                 }
             
             ($arg, $default) = split /=/, $arg, 2;
-            my($type, $name) = split ':', $arg, 2;
+            my($type, $name) ;
+            if ($arg =~ /^(.+)\s*:\s*(.+)$/)
+                {
+                $type = $1 ;
+                $name = $2 ;
+                }
+
+            #my($type, $name) = split /:(?:[^:])/, $arg, 2;
 
             my $arghash ;
             if ($type and $name) {
@@ -647,7 +654,7 @@ sub sv_convert_code {
     my $map = $self->get;
     my %seen;
     my $cnvprefix =  $self -> {wrapxs} -> my_cnv_prefix ;
-    my $typemap_code = $self -> typemap_code ;
+    my $typemap_code = $self -> typemap_code ($cnvprefix);
     my $code = q{
     
 #ifndef aTHX_
@@ -783,6 +790,7 @@ sub typemap_code
 
     {
     my $self = shift ;
+    my $cnvprefix = shift ;
 
     return 
         {
@@ -845,18 +853,18 @@ q[   rv = newSViv(0) ; \\\\
             },
         'T_AVREF' => 
             {
-            'OUTPUT' => '        $arg = SvREFCNT_inc (epxs_AVREF_2obj($var));',
-            'INPUT'  => '        $var = epxs_sv2_AVREF($arg)',
+            'OUTPUT' => "        \$arg = SvREFCNT_inc (${cnvprefix}AVREF_2obj(\$var));",
+            'INPUT'  => "        \$var = ${cnvprefix}sv2_AVREF(\$arg)",
             },
         'T_HVREF' => 
             {
-            'OUTPUT' => '        $arg = SvREFCNT_inc (epxs_HVREF_2obj($var));',
-            'INPUT'  => '        $var = epxs_sv2_HVREF($arg)',
+            'OUTPUT' => "        \$arg = SvREFCNT_inc (${cnvprefix}HVREF_2obj(\$var));",
+            'INPUT'  => "        \$var = ${cnvprefix}sv2_HVREF(\$arg)",
             },
         'T_SVPTR' => 
             {
-            'OUTPUT' => '        $arg = SvREFCNT_inc (epxs_SVPTR_2obj($var));',
-            'INPUT'  => '        $var = ($type)epxs_sv2_SVPTR($arg)',
+            'OUTPUT' => "        \$arg = SvREFCNT_inc (${cnvprefix}SVPTR_2obj(\$var));",
+            'INPUT'  => "        \$var = (\$type)${cnvprefix}sv2_SVPTR(\$arg)",
             },
         },
     }

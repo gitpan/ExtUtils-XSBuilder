@@ -1,3 +1,12 @@
+* 0.27
+
+- add support for char arrays 
+- better handle win32 api
+
+* 0.26
+
+- Include a default POD Template object
+
 * 0.25
 
 - Make XSBuilder.pm compatible with CPAN.pm
