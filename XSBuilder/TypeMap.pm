@@ -856,7 +856,7 @@ q[   rv = newSViv(0) ; \\\\
         'T_SVPTR' => 
             {
             'OUTPUT' => '        $arg = SvREFCNT_inc (epxs_SVPTR_2obj($var));',
-            'INPUT'  => '        $var = epxs_sv2_SVPTR($arg)',
+            'INPUT'  => '        $var = ($type)epxs_sv2_SVPTR($arg)',
             },
         },
     }

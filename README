@@ -4,7 +4,7 @@ ExtUtils::XSBuilder - Automatic XS glue code generation
 -------------------------------------------------------
 
 Copyright (c) 2000-2001 Doug MacEachern
-Copyright (c) 2001-2002 Gerald Richter / ecos gmbh (www.ecos.de)
+Copyright (c) 2001-2004 Gerald Richter / ecos gmbh (www.ecos.de)
 
 You may distribute under the terms of either the GNU General Public 
 License or the Artistic License, as specified in the Perl README file.
@@ -13,7 +13,7 @@ THIS PACKAGE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED
 WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF 
 MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 
-$Id: README,v 1.3 2002/08/05 18:02:12 richter Exp $
+$Id: README,v 1.4 2004/03/29 03:49:31 richter Exp $
 
 
 OVERVIEW

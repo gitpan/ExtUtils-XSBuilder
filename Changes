@@ -1,3 +1,9 @@
+* 0.25
+
+- Make XSBuilder.pm compatible with CPAN.pm
+
+- Added minimal load test 
+
 * 0.03
 
 - Generation of pod files. (Based on a patch from Lyle Brooks)

@@ -1583,8 +1583,10 @@ sub generate_pod {
     my $self = shift ;
     my $fh   = shift;
     my $pdd  = shift;
-
-    print $fh "=head1 NAME\n\n", $pdd->{module}, "\n\n";
+    my $templ = $self -> new_podtemplate ; 
+    
+    my $since = $templ -> since_default ; 
+    print $fh $templ -> gen_pod_head ($pdd->{module}) ;
 
     my $detail = $pdd->{functions_detailed};
 
@@ -1592,6 +1594,7 @@ sub generate_pod {
       warn "No functions listed in pdd structure for $pdd->{module}";
       return;
     }
+
 
     foreach my $f (@$detail) {
 
@@ -1605,20 +1608,12 @@ sub generate_pod {
             warn "Cannot determinate method name for '$f->{name}'" ;
             next ;
         }
-        print $fh "\n=head2 \@func: $method()\n\n";
-
-
         my $comment = $f->{comment_parsed};
+        my $commenttext = ($comment->{func_desc} || '') . "\n\n" . ($comment->{doxygen_remark} || '') ;
         my $member  = $f -> {struct_member};
         if ($member)
             {
-            print $fh "\$val = \$obj -> $f->{perl_name}(\$newval)\n\n" ;
-
-            print $fh "=over 4\n\n";
-
-            print $fh "=item \@param: $f->{class} \$obj\n\n" ;
-
-            print $fh "=item \@param: $f->{struct_member}->{class} \$newval\n\n" ;
+            print $fh $templ -> gen_pod_struct_member ($f->{class}, '$obj', $f->{struct_member}->{class}, $f->{perl_name}, $commenttext, $since) ;
             }
         else
             {
@@ -1632,72 +1627,34 @@ sub generate_pod {
 
                 my $first_param = $f->{args}[0];
                 unless (_pod_is_function($first_param->{class})) {
-                    $obj_nm  = shift @param_nm;             # Object Name
-                    $obj_sym = &_pod_gen_siglet($first_param->{class}) . $obj_nm;
+                    $obj_nm  = $param_nm[0];             # Object Name
+                    $obj_sym = &_pod_gen_siglet($first_param->{class}). $obj_nm;
                     $offset++;
                 }
 
-                # Return Codes
-                if ($f -> {return_type} ne 'void') {
-                    print $fh "\$ret = " ;
+               
+                my $retclass ;
+                my $retcomment = $comment -> {doxygen_return} || '' ;
+
+                if ($f -> {return_type}  && $f -> {return_type} ne 'void') {
+                    my $rettype = $self -> typemap->get->{$f -> {return_type}} ;
+                    $retclass = $rettype?$rettype->{class}:$f -> {return_type};
                 }
-                
-                #
-                # Print function synopsis
-                #
-                print $fh $obj_sym, "->" if defined $obj_nm;
-                print $fh "$method(";
 
-                my $i = $offset;
+
+
                 my @param;
-
+                my $i = 0 ;
                 for my $param_nm (@param_nm) {
                     my $arg = $args->[$i++];
-                    push @param, &_pod_gen_siglet($arg->{class}) . $param_nm;
+                    push @param, { class => $arg->{class}, name => &_pod_gen_siglet($arg->{class}) . $param_nm, 
+                                    comment => ($comment->{doxygen_param_desc}{$param_nm} || '') } ;
                 }
 
-                print $fh join(", ", @param), ")\n\n";
-
-                print $fh "=over 4\n\n";
-
-                #
-                # Print the object description
-                #
-                if (defined $obj_nm) {
-                    print $fh "=item \@param: $first_param->{class} $obj_sym\n\n",
-                                    $comment->{doxygen_param_desc}{$obj_nm} || '', "\n\n";
-                }
-
-                my $j = 0;
-                for my $p (@param_nm) {
-                    my $arg   = $args->[$j];
-                    my $class = $args->[$j++]->{class};
-
-                    #print Dumper ($p, $class, $arg, $arg->{class}, $comment->{doxygen_param_desc}) ;
-                    print $fh "=item \@param: $arg->{class} ", &_pod_gen_siglet($arg->{class}), $p, "\n\n",
-                                    $comment->{doxygen_param_desc}{$p} || '', "\n\n";
-                }
-            }
-
-            if ($f -> {return_type}  && $f -> {return_type} ne 'void') {
-                my $rettype = $self -> typemap->get->{$f -> {return_type}} ;
-                $rettype = $rettype?$rettype->{class}:$f -> {return_type};
-
-                print $fh "=item \@ret: ", $rettype, "\n\n",  
-                                $comment -> {doxygen_return} || '', "\n\n" ;
-            }
+                print $fh $templ -> gen_pod_func ($obj_sym, $obj_sym, $method, \@param, $retclass, $retcomment, $commenttext, $since) ;
+            }    
         }
-        print $fh '=item @since: 2.0.1', "\n\n";
-
-        print $fh "=back\n";
-
-        #
-        # Print description and comments
-        #
-
-        print $fh "\n", $comment->{func_desc} || '', "\n\n", $comment->{doxygen_remark} || '', "\n";
     }
-
 }
 
 

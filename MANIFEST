@@ -2,6 +2,7 @@ README
 MANIFEST
 Changes
 Makefile.PL
+test.pl
 XSBuilder/CallbackMap.pm
 XSBuilder/FunctionMap.pm
 XSBuilder/MapUtil.pm
