@@ -1,0 +1,15 @@
+README
+MANIFEST
+Changes
+Makefile.PL
+XSBuilder/CallbackMap.pm
+XSBuilder/FunctionMap.pm
+XSBuilder/MapUtil.pm
+XSBuilder/ParseSource.pm
+XSBuilder/StructureMap.pm
+XSBuilder/TypeMap.pm
+XSBuilder/WrapXS.pm
+XSBuilder/C/grammar.pm
+XSBuilder.pm
+XSBuilder.pod
+xsbuilder.osc2002.pod
