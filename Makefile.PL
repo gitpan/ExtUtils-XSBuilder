@@ -6,7 +6,7 @@ WriteMakefile(
     'VERSION_FROM' => 'XSBuilder.pm', 
 	'AUTHOR' => 'Gerald Richter <richter@dev.ecos.de>',
 	'ABSTRACT' => 'Automatic XS glue code generation',
-    'PREREQ_PM'    => { 'Parse::RecDescent' => 0, 'Tie/IxHash' => 0 },
+    'PREREQ_PM'    => { 'Parse::RecDescent' => 0, 'Tie::IxHash' => 0 },
 
 );
 

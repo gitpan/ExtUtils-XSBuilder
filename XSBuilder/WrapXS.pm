@@ -14,7 +14,7 @@ use Data::Dumper;
 
 use Carp qw(confess) ;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 my %warnings;
 
@@ -1004,6 +1004,9 @@ EOF
                    code  => $code,
                    class => $class,
                    name  => $name,
+                   perl_name  => $e -> {perl_name},
+                   comment    => $e -> {comment},
+                   struct_member => $e,
                 };
             }
         }
@@ -1174,7 +1177,7 @@ sub write_makefilepl {
 
     my $includes = $self->includes;
     my @parts = split '::', $class ;
-    my $xs = $parts[-1] . '.c';
+    my $xs = @parts?$parts[-1] . '.c':'' ;
     my $deps = {$xs => ""};
 
     if (my $mod_h = $self->mod_h($class, 1)) {
@@ -1543,6 +1546,164 @@ sub write_typemap_h_file {
 
 # ============================================================================
 
+sub _pod_gen_siglet {
+
+   my $class = shift;
+
+   return '\%' if $class eq 'HV';
+   return '\@' if $class eq 'AV';
+   return '$';
+}
+
+# ============================================================================
+# Determine if the name is that of a function or an object
+
+sub _pod_is_function {
+
+   my $class = shift || '';
+
+#print "_pod_is_function($class)\n";
+
+   my %func_class = (
+      SV => 1,
+      IV => 1,
+      NV => 1,
+      PV => 1,
+      UV => 1,
+     PTR => 1,
+   );
+
+   exists $func_class{$class};
+}
+
+# ============================================================================
+
+sub generate_pod {
+
+    my $self = shift ;
+    my $fh   = shift;
+    my $pdd  = shift;
+
+    print $fh "=head1 NAME\n\n", $pdd->{module}, "\n\n";
+
+    my $detail = $pdd->{functions_detailed};
+
+    unless ( ref($detail) eq 'ARRAY') {
+      warn "No functions listed in pdd structure for $pdd->{module}";
+      return;
+    }
+
+    foreach my $f (@$detail) {
+
+        # Generate the function or method name
+
+        my $method = $f->{perl_name};
+        $method = $1 if ($f->{prefix} && ($method =~ /^$f->{prefix}(.*?)$/)) ;
+        $method = $1 if ($f->{class_xs_prefix} && ($method =~ /^(?:DEFINE_)?$f->{class_xs_prefix}(.*?)$/)) ;
+
+        if (!$method) {
+            warn "Cannot determinate method name for '$f->{name}'" ;
+            next ;
+        }
+        print $fh "\n=head2 \@func: $method()\n\n";
+
+
+        my $comment = $f->{comment_parsed};
+        my $member  = $f -> {struct_member};
+        if ($member)
+            {
+            print $fh "\$val = \$obj -> $f->{perl_name}(\$newval)\n\n" ;
+
+            print $fh "=over 4\n\n";
+
+            print $fh "=item \@param: $f->{class} \$obj\n\n" ;
+
+            print $fh "=item \@param: $f->{struct_member}->{class} \$newval\n\n" ;
+            }
+        else
+            {
+            my $args    = $f->{args};
+            if ($args && @$args)
+                {
+                my @param_nm = map { $_ -> {name} } @$args ;  # Parameter names
+                my $obj_nm;
+                my $obj_sym;
+                my $offset = 0;
+
+                my $first_param = $f->{args}[0];
+                unless (_pod_is_function($first_param->{class})) {
+                    $obj_nm  = shift @param_nm;             # Object Name
+                    $obj_sym = &_pod_gen_siglet($first_param->{class}) . $obj_nm;
+                    $offset++;
+                }
+
+                # Return Codes
+                if ($f -> {return_type} ne 'void') {
+                    print $fh "\$ret = " ;
+                }
+                
+                #
+                # Print function synopsis
+                #
+                print $fh $obj_sym, "->" if defined $obj_nm;
+                print $fh "$method(";
+
+                my $i = $offset;
+                my @param;
+
+                for my $param_nm (@param_nm) {
+                    my $arg = $args->[$i++];
+                    push @param, &_pod_gen_siglet($arg->{class}) . $param_nm;
+                }
+
+                print $fh join(", ", @param), ")\n\n";
+
+                print $fh "=over 4\n\n";
+
+                #
+                # Print the object description
+                #
+                if (defined $obj_nm) {
+                    print $fh "=item \@param: $first_param->{class} $obj_sym\n\n",
+                                    $comment->{doxygen_param_desc}{$obj_nm} || '', "\n\n";
+                }
+
+                my $j = 0;
+                for my $p (@param_nm) {
+                    my $arg   = $args->[$j];
+                    my $class = $args->[$j++]->{class};
+
+                    #print Dumper ($p, $class, $arg, $arg->{class}, $comment->{doxygen_param_desc}) ;
+                    print $fh "=item \@param: $arg->{class} ", &_pod_gen_siglet($arg->{class}), $p, "\n\n",
+                                    $comment->{doxygen_param_desc}{$p} || '', "\n\n";
+                }
+            }
+
+            if ($f -> {return_type}  && $f -> {return_type} ne 'void') {
+                my $rettype = $self -> typemap->get->{$f -> {return_type}} ;
+                $rettype = $rettype?$rettype->{class}:$f -> {return_type};
+
+                print $fh "=item \@ret: ", $rettype, "\n\n",  
+                                $comment -> {doxygen_return} || '', "\n\n" ;
+            }
+        }
+        print $fh '=item @since: 2.0.1', "\n\n";
+
+        print $fh "=back\n";
+
+        #
+        # Print description and comments
+        #
+
+        print $fh "\n", $comment->{func_desc} || '', "\n\n", $comment->{doxygen_remark} || '', "\n";
+    }
+
+}
+
+
+
+# ============================================================================
+
 # pdd = PERL Data Dumper
 sub write_docs {
     my($self, $module, $functions) = @_;
@@ -1572,11 +1733,11 @@ sub write_docs {
     # @remark like @remarks, but we don't do any speacial treating for
     # @deffunc.  Ideas or suggestions anyone?
 
-    # --Axel Beckert <abe@deuxchevaux.org>
+    # --Axel Beckert 
 
     foreach my $details (@$functions) {
 	#print "Comment: ", $details->{name} || '?', ':  ', $details->{comment} || '-', "\n" ;
-        #print Dumper ($details) if (!$details->{comment}) ;
+        #print "----> ", Dumper ($details) ;# if (!$details->{comment}) ;
 
         if (defined $details->{comment} and  
 	    my $comment = $details->{comment}) {
@@ -1775,7 +1936,7 @@ sub write_docs {
     my $newxs = $self->{newXS}->{$module};
 
     # Finally do the PDD Dump
-    print $fh Dumper {
+    my $pdd = {
 	module => $module, 
 	functions => [ map $$_{perl_name}, @$functions ],
 	functions_detailed => [ @$functions ],
@@ -1786,6 +1947,11 @@ sub write_docs {
 	newXS => $newxs
     };
 
+    print $fh Dumper $pdd;
+    close $fh;
+
+    $fh = $self->open_class_file($module, '.pod');
+    $self -> generate_pod($fh, $pdd);
     close $fh;
 }
 
