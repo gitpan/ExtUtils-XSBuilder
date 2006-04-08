@@ -1,3 +1,11 @@
+* 0.28
+
+- More information output in case mapping between C and Perl
+  fails.
+- init_callbacks can take the object as a second argument
+- Documenatations updates  
+  
+
 * 0.27
 
 - add support for char arrays 

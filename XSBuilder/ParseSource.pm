@@ -1,4 +1,3 @@
-
 package ExtUtils::XSBuilder::ParseSource;
 
 use strict;
@@ -17,6 +16,18 @@ $VERSION = '0.03';
 $verbose = 1 ;
 
 
+=pod
+
+=head1 NAME
+
+ExtUtils::XSBuilder::ParseSource - parse C source files
+
+=head2 DESCRIPTION
+
+For more information, see L<ExtUtils::XSBuilder>
+
+=cut
+
 # ============================================================================
 
 sub new {
@@ -31,16 +42,16 @@ sub new {
 }
 
 # ============================================================================
+
 =pod
 
 =head2 extent_parser (o)
 
-gives the possibilty to call Extent or Replace method of the parser to add 
-new syntax rules. This is mainly usefull to include expansions for 
+Allows the user to call the Extent or Replace method of the parser to add 
+new syntax rules. This is mainly useful to include expansions for 
 preprocessor macros.
 
 =cut
-# ---------------
 
 sub extent_parser {
 }
@@ -48,13 +59,13 @@ sub extent_parser {
 # ============================================================================
 =pod
 
-=head2 extent_parser (o)
+=head2 preprocess (o)
 
-gives the possibilty to preprocess the source before it is given, to the parser
+Allows the user to preprocess the source before it is given to the parser.
 You may modify the source, which is given as first argument in place.
 
 =cut
-# ---------------
+
 sub preprocess {
 }
 
@@ -125,11 +136,12 @@ sub DESTROY {
 
 =head2 include_dirs (o)
 
-returns a reference to a list of directories that should be searched for
-include files from which functions/structures etc. should be extracted. Default: '.'
+Returns a reference to the list of directories that should be searched for
+include files which contain the functions, structures, etc. to be extracted. 
+
+Default: C<'.'>
 
 =cut
-# ---------------
 
 sub include_dirs {
     my $self = shift;
@@ -142,13 +154,13 @@ sub include_dirs {
 
 =head2 include_paths (o)
 
-returns a reference to a list of directories that are given as include directories
-to the C compiler. This mainly is used to strip these directories from filenames
-to make them independend of the location on the target system.
-Default: empty list
+Returns a reference to a list of directories that are given as include
+directories to the C compiler. This is mainly used to strip these directories
+from filenames to convert absolute paths to relative paths.
+
+Default: empty list (C<[]>)
 
 =cut
-# ---------------
 
 sub include_paths {
     my $self = shift;
@@ -161,10 +173,11 @@ sub include_paths {
 
 =head2 unwanted_includes (o)
 
-returns a reference to a list of include files that should not be processed.
+Returns a reference to a list of include files that should not be processed.
+
+Default: empty list (C<[]>)
 
 =cut
-# ---------------
 
 sub unwanted_includes { [] }
 
@@ -173,13 +186,14 @@ sub unwanted_includes { [] }
 # ============================================================================
 =pod
 
-=head2 sort_includes (o)
+=head2 sort_includes (o, include_list)
 
-gets a array ref of include files, should returned an ordered one, so includes
-are processed in the right order.
+Passed an array ref of include files, it allows the user to define the sort
+order, so includes are processed correctly.
+
+Default: return the passed array reference.
 
 =cut
-# ---------------
 
 sub sort_includes {
     
@@ -193,13 +207,13 @@ sub sort_includes {
 
 =head2 find_includes (o)
 
-returns a list of include files to be processed. Default:
-search directories given by C<include_dirs> for all files and build list
-of include files. All files starting with a word returned by C<unwanted_includes>
-are not included in the list.
+Returns a list of include files to be processed. 
+
+Default: search directories given by C<include_dirs> for all files and build a
+list of include files. All files starting with a word matched by 
+C<unwanted_includes> are not included in the list.
 
 =cut
-# ---------------
 
 sub find_includes {
     my $self = shift;
@@ -241,11 +255,12 @@ sub find_includes {
 
 =head2 handle_define (o)
 
-gets a hash ref with the definition of a define, may modify it.
-return false to discard it, return true to keep it.
+Passed a hash ref with the definition of a define, may modify it.
+Return false to discard it, return true to keep it.
+
+Default: C<1>
 
 =cut
-# ---------------
 
 sub handle_define { 1 } ;
 
@@ -255,11 +270,12 @@ sub handle_define { 1 } ;
 
 =head2 handle_enum (o)
 
-gets a hash ref with the definition of a enum value, may modify it.
-return false to discard it, return true to keep it.
+Passed a hash ref with the definition of a enum value, may modify it.
+Return false to discard it, return true to keep it.
+
+Default: C<1>
 
 =cut
-# ---------------
 
 sub handle_enum { 1 } ;
 
@@ -269,11 +285,12 @@ sub handle_enum { 1 } ;
 
 =head2 handle_struct (o)
 
-gets a hash ref with the definition of a struct, may modify it.
-return false to discard it, return true to keep it.
+Passed a hash ref with the definition of a struct, may modify it.
+Return false to discard it, return true to keep it.
+
+Default: C<1>
 
 =cut
-# ---------------
 
 sub handle_struct { 1 } ;
 
@@ -284,11 +301,12 @@ sub handle_struct { 1 } ;
 
 =head2 handle_function (o)
 
-gets a hash ref with the definition of a function, may modify it.
-return false to discard it, return true to keep it.
+Passed a hash ref with the definition of a function, may modify it.
+Return false to discard it, return true to keep it.
+
+Default: C<1>
 
 =cut
-# ---------------
 
 sub handle_function { 1 } ;
 
@@ -299,11 +317,12 @@ sub handle_function { 1 } ;
 
 =head2 handle_callback (o)
 
-gets a hash ref with the definition of a callback, may modify it.
-return false to discard it, return true to keep it.
+Passed a hash ref with the definition of a callback, may modify it.
+Return false to discard it, return true to keep it.
+
+Default: C<1>
 
 =cut
-# ---------------
 
 sub handle_callback { 1 } ;
 
@@ -416,10 +435,11 @@ sub get_callbacks {
 
 =head2 package (o)
 
-return package name for tables
+Return package name for tables
+
+Default: C<'MY'>
 
 =cut
-# ---------------
 
 sub package { 'MY' }
 
@@ -428,10 +448,11 @@ sub package { 'MY' }
 
 =head2 targetdir (o)
 
-return name of target directory where to write tables
+Return name of target directory where to write tables
+
+Default: C<'./xsbuilder/tables'>
 
 =cut
-# ---------------
 
 sub targetdir { './xsbuilder/tables' }
 
@@ -607,14 +628,13 @@ sub canonsort {
 
 =head2 run
 
-call this class method to parse your source. Before you can do so you have to
-provide a class that overrides the defaults in ExtUtils::XSBuilder::ParseSource.
-After that you scan the source files with
+Call this class method to parse your source. Before you can do so you must
+provide a class that overrides the defaults in
+L<ExtUtils::XSBuilder::ParseSource>. After that you scan the source files with
 
     MyClass -> run ;
 
 =cut
-# ---------------
 
 sub run
 

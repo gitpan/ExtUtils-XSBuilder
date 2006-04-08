@@ -18,6 +18,19 @@ use Carp qw(confess) ;
 our $VERSION = '0.03';
 
 my %warnings;
+my $verbose = 0 ;
+
+=pod
+
+=head1 NAME
+
+ExtUtils::XSBuilder::WrapXS - create perl XS wrappers for C functions
+
+=head2 DESCRIPTION
+
+For more information, see L<ExtUtils::XSBuilder>
+
+=cut
 
 # ============================================================================
 
@@ -106,11 +119,10 @@ sub noedit_warning_hash {
 
 =head2 new_parsesource (o)
 
-returns an array ref of new ParseSource objects for all sources for that should 
-xs should be generated
+Returns an array ref of new ParseSource objects for all source files that 
+should be used to generate XS files
 
 =cut
-# ---------------
 
 sub new_parsesource  { [ ExtUtils::XSBuilder::ParseSource->new ] }
 
@@ -120,10 +132,9 @@ sub new_parsesource  { [ ExtUtils::XSBuilder::ParseSource->new ] }
 
 =head2 new_typemap (o)
 
-returns new typemap object
+Returns a new typemap object
 
 =cut
-# ---------------
 
 sub new_typemap  { ExtUtils::XSBuilder::TypeMap->new (shift) }
 
@@ -132,10 +143,9 @@ sub new_typemap  { ExtUtils::XSBuilder::TypeMap->new (shift) }
 
 =head2 new_podtemplate (o)
 
-returns new podtemplate object
+Returns a new podtemplate object
 
 =cut
-# ---------------
 
 sub new_podtemplate { ExtUtils::XSBuilder::PODTemplate->new }
 
@@ -144,12 +154,12 @@ sub new_podtemplate { ExtUtils::XSBuilder::PODTemplate->new }
 
 =head2 xs_includes (o)
 
-returns list of xs include files.
-Default: use all includes files that ParseSource::find_includes returns,
-but strip paths
+Returns a list of XS include files.
+
+Default: use all include files that C<ParseSource::find_includes> returns, but
+strip path info
 
 =cut
-# ---------------
 
 sub xs_includes  
     { 
@@ -211,10 +221,9 @@ sub xs_includes
 
 =head2 xs_glue_dirs (o)
 
-returns list of addtional xs glue directories where to seach for maps etc.
+Returns a list of additional XS glue directories to seach for maps in.
 
 =cut
-# ---------------
 
 
 sub xs_glue_dirs {
@@ -227,32 +236,11 @@ sub xs_glue_dirs {
 
 =head2 xs_base_dir (o)
 
-returns directory which servs as base for other directories. The default is the current
-directory. Defaults are:
+Returns a directory which serves as a base for other directories. 
 
-=over
-
-=item xs_incsrc_dir  
-
-<xs_base_dir>/xsbuilder
-
-=item xs_map_dir 
-
-<xs_base_dir>/xsbuilder/maps
-
-=item xs_include_dir
-
-<xs_base_dir>/xsinclude
-
-=item xs_target_dir
-
-<xs_base_dir>/xs
-
-=back
-
+Default: C<'.'>
 
 =cut
-# ---------------
 
 
 sub xs_base_dir { '.' } ;
@@ -264,10 +252,11 @@ sub xs_base_dir { '.' } ;
 
 =head2 xs_map_dir (o)
 
-returns directory where to seach for maps 
+Returns the directory to search for map files in
+
+Default: C<<xs_base_dir>/xsbuilder/maps>
 
 =cut
-# ---------------
 
 
 sub xs_map_dir { File::Spec -> catdir ($_[0] -> xs_base_dir, 'xsbuilder', 'maps') } ;
@@ -277,12 +266,14 @@ sub xs_map_dir { File::Spec -> catdir ($_[0] -> xs_base_dir, 'xsbuilder', 'maps'
 
 =head2 xs_incsrc_dir (o)
 
-returns directory where to seach for file that should be included into the source
-e.g. <xs_incsrc_dir>/Apache/DAV/Resource/Recource_pm will be included into
-the Apache::DAV::Resource module.
+Returns the directory to search for files to include into the source. For
+example, C<<xs_incsrc_dir>/Apache/DAV/Resource/Resource_pm> will be included into
+the C<Apache::DAV::Resource> module.
+
+Default: C<<xs_base_dir>/xsbuilder>
+
 
 =cut
-# ---------------
 
 
 sub xs_incsrc_dir { File::Spec -> catdir ($_[0] -> xs_base_dir, 'xsbuilder') ; } ;
@@ -292,10 +283,11 @@ sub xs_incsrc_dir { File::Spec -> catdir ($_[0] -> xs_base_dir, 'xsbuilder') ; }
 
 =head2 xs_include_dir (o)
 
-returns directory where to seach for include files for pm and xs 
+Returns a directory to search for include files for pm and XS 
+
+Default: C<<xs_base_dir>/xsinclude>
 
 =cut
-# ---------------
 
 
 sub xs_include_dir { File::Spec -> catdir ($_[0] -> xs_base_dir, 'xsinclude') ; } ;
@@ -305,10 +297,11 @@ sub xs_include_dir { File::Spec -> catdir ($_[0] -> xs_base_dir, 'xsinclude') ; 
 
 =head2 xs_target_dir (o)
 
-returns directory where to write generated xs and header files
+Returns the directory to write generated XS and header files in
+
+Default: C<<xs_base_dir>/xs>
 
 =cut
-# ---------------
 
 
 sub xs_target_dir { File::Spec -> catdir ($_[0] -> xs_base_dir, 'xs') ; }
@@ -445,7 +438,7 @@ static $return_type $cbname (] . join (',', "$desttype * __cbdest", @args) . qq[
 
     if ($structelt)
         {
-        $code .= "    __cnt = perl_call_method(\"$structelt\", $callflags) ;\n" ;
+        $code .= "    __cnt = perl_call_method(\"cb_$structelt\", $callflags) ;\n" ;
         }
     else
         {
@@ -456,7 +449,9 @@ static $return_type $cbname (] . join (',', "$desttype * __cbdest", @args) . qq[
 
     if (__cnt != $numret)
         croak (\"$cbname expected $numret return values\") ;
+] if ($numret > 0) ;
 
+    $code .= qq[
     SPAGAIN ;
 ] ;
 
@@ -528,7 +523,7 @@ sub get_function {
 
     my %retargs = map { $_->{name} => $_ } @$retargs ;
 
-    print "get_function: ", Data::Dumper -> Dump([$func]), "\n" ;
+    print "get_function: ", Data::Dumper -> Dump([$func]), "\n" if ($verbose);
     #eg ap_fputs()
     if ($name =~ s/^DEFINE_//) {
         $func->{name} =~ s/^DEFINE_//;
@@ -700,8 +695,9 @@ sub get_structure_callback_init {
     my $code = qq[
 
 void
-init_callbacks (obj)
+init_callbacks (obj, val=NULL)
     SV *  obj
+    SV *  val
 PREINIT:
     int  n = -1 ;
     int  i ;
@@ -709,6 +705,8 @@ PREINIT:
     SV * ref ;
     SV * perl_obj ;
 CODE:
+    if (items > 1)
+        obj = val ;
 
     perl_obj = SvRV(obj) ;
     ref = newRV_noinc(perl_obj) ;
@@ -951,8 +949,12 @@ sub get_structures {
         print 'struct ', $entry->{type} || '???', "...\n" ;
 
         my $struct = $typemap->map_structure($entry);
-        #print Dumper ($entry, $struct)   ;
-        next unless $struct;
+        print Data::Dumper -> Dump ([$entry, $struct], ['Table Entry', 'Mapfile Entry'])  if ($verbose) ;
+        if (!$struct)
+            {
+            print "WARNING: Struture '$entry->{type}' not found in map file\n" ;
+            next ;
+            }
 
         my $class = $struct->{class};
         $has_callbacks = 0 ;
@@ -1163,10 +1165,9 @@ sub open_class_file {
 
 =head2 makefilepl_text (o)
 
-returns text for Makefile.PL
+Returns text for Makefile.PL
 
 =cut
-# ---------------
 
 sub makefilepl_text {
     my($self, $class, $deps,$typemap) = @_;
@@ -1302,10 +1303,11 @@ sub mod_pm {
 
 =head2 h_filename_prefix (o)
 
-defines a prefix for generated header files
+Defines a prefix for generated header files
+
+Default: C<'xs_'>
 
 =cut
-# ---------------
 
 sub h_filename_prefix  { 'xs_' }
 
@@ -1314,10 +1316,11 @@ sub h_filename_prefix  { 'xs_' }
 
 =head2 my_xs_prefix (o)
 
-defines a prefix used for all xs functions
+Defines a prefix used for all XS functions
+
+Default: C<'xs_'>
 
 =cut
-# ---------------
 
 sub my_xs_prefix  { 'xs_' }
 
@@ -1326,23 +1329,22 @@ sub my_xs_prefix  { 'xs_' }
 
 =head2 my_cnv_prefix (o)
 
-defines a prefix used for all conversion functions/macros. 
-Default: my_xs_prefix
+Defines a prefix used for all conversion functions/macros.
+
+Default: C<my_xs_prefix>
 
 =cut
-# ---------------
 
 sub my_cnv_prefix  { $_[0] -> my_xs_prefix }
 
 # ============================================================================
 =pod
 
-=head2 needs_prefix (o)
+=head2 needs_prefix (o, name)
 
-return true if the given name should be prefixed
+Returns true if the passed name should be prefixed
 
 =cut
-# ---------------
 
 sub needs_prefix { 
     return 0 if (!$_[1]) ;
@@ -1468,13 +1470,14 @@ EOF
 # ============================================================================
 =pod
 
-=head2 pm_text (o)
+=head2 pm_text (o, module, isa, code)
 
-returns text for pm file or undef if no pm file should be written.
-Default: Create a pm file which bootstraps the XS code
+Returns the text of a C<.pm> file, or undef if no C<.pm> file should be
+written.
+
+Default: Create a C<.pm> file which bootstraps the XS code
 
 =cut
-# ---------------
 
 sub pm_text {
     my($self, $module, $isa, $code) = @_;
@@ -1588,7 +1591,7 @@ sub write_typemap_h_file {
 
 sub _pod_gen_siglet {
 
-   my $class = shift;
+   my $class = shift || '' ;
 
    return '\%' if $class eq 'HV';
    return '\@' if $class eq 'AV';
@@ -2016,13 +2019,15 @@ sub stats {
 # ============================================================================
 =pod
 
-=head2 mapline_elem  (o)
+=head2 mapline_elem  (o, elem)
 
-Is called for each structure element that is written to the mapfile by checkmaps.
-Allows to change the name of the element, for example add a different perl name.
+Called for each structure element that is written to the map file by
+checkmaps. Allows the user to change the element name, for example
+adding a different perl name.
+
+Default: returns the element unmodified
 
 =cut
-# ---------------
 
 sub mapline_elem { return $_[1] } ;
 
@@ -2031,11 +2036,13 @@ sub mapline_elem { return $_[1] } ;
 
 =head2 mapline_func  (o)
 
-Is called for each function that is written to the mapfile by checkmaps.
-Allows to change the name of the function, for example add a different perl name.
+Called for each function that is written to the map file by checkmaps. Allows
+the user to change the function name, for example adding a different perl
+name.
+
+Default: returns the element unmodified
 
 =cut
-# ---------------
 
 sub mapline_func { return $_[1] } ;
 

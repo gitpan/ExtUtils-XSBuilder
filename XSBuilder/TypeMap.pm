@@ -123,11 +123,15 @@ sub exists {
 }
 
 sub map_type {
-    my($self, $type) = @_;
+    my($self, $type, $quiet) = @_;
     my $t = $self->get->{$type};
     my $class = $t -> {class} ;
 
-    return undef unless $class and ! $self->special($class);
+    unless ($class and ! $self->special($class))
+        {
+        print "WARNING: Type '$type' not in mapfile\n" if (!$quiet);
+        return undef ;
+        }
     if ($class =~ /(.*?)::$/) {
         return $1 ;
     }
@@ -165,6 +169,9 @@ sub null_type {
     if ($class =~ /^[INU]V/) {
         return '0';
     }
+    elsif ($class =~ /^(U_)?CHAR$/) {
+        return '0'; # xsubpp seems to mangle q{'\0'}
+    }
     else {
         return 'NULL';
     }
@@ -196,7 +203,7 @@ sub can_map {
 
 sub map_arg {
     my($self, $arg) = @_;
-    print Dumper ($arg), 'map ', $self->map_type($arg->{type}), "\n" ;
+    #print Dumper ($arg), 'map ', $self->map_type($arg->{type}), "\n" ;
     return {
        name    => $arg->{name},
        default => $arg->{default},
@@ -393,21 +400,22 @@ sub map_structure {
             }
         if (!($mapping = $self->structure_map->{$stype}->{$name}))
             {
+            print "WARNING: $stype for $name not in mapfile\n" ;
             next ;
             }
         my $mallocmap = $self->structure_map->{$stype}{-malloc} ;
         my $freemap   = $self->structure_map->{$stype}{-free} ;
 
-        #print Dumper($mapping, $type) ;
+        #print 'mapping: ', Dumper($mapping, $type) ;
 
-        if ($rtype = $self->map_type($type)) {
+        if ($rtype = $self->map_type($type, 1)) {
             #print "rtype=$rtype\n" ;
             my $malloctype = $self->map_malloc_type($type) ;
             push @elts, {
                name    => $name,
                perl_name    => $mapping -> {perl_name} || $name,
                comment => $e -> {comment},
-               type    => $rtype,
+               type    => $mapping -> {type} || $rtype,
                rtype   => $type,
                default => $self->null_type($type),
                pool    => $self->class_pool($class),
@@ -430,6 +438,11 @@ sub map_structure {
                callback => 1,
             };
         }
+        else
+            {
+            print "WARNING: Type '$type' for struct memeber '$name' in not in types mapfile\n" ;
+            }
+
     }
 
     return {
@@ -625,6 +638,10 @@ sub typedefs_code {
     }
 
     $code .= "typedef void * PTR;\n";
+    $code .= "#if PERL_VERSION > 5\n";
+    $code .= "typedef char * PV;\n";
+    $code .= "#endif\n";
+    $code .= "typedef char * PVnull;\n";
 
     $code .= q{
 #ifndef pTHX_
@@ -760,9 +777,11 @@ sub sv_convert_code {
     $code .= "#define ${cnvprefix}sv2_SV(sv) (sv)\n\n";
     $code .= "#define ${cnvprefix}SV_2obj(x) (x)\n\n";
     $code .= "#define ${cnvprefix}sv2_SVPTR(sv) (sv)\n\n";
-    $code .= "#define ${cnvprefix}SVPTR_2obj(x) (sv_2mortal(SvREFCNT_inc(x)))\n\n";
-    $code .= "#define ${cnvprefix}sv2_PV(sv) (SvOK(sv)?SvPV(sv, PL_na):NULL)\n\n";
-    $code .= "#define ${cnvprefix}PV_2obj(x) (x==NULL?&PL_sv_undef:sv_2mortal(newSVpv(x, 0)))\n\n";
+    $code .= "#define ${cnvprefix}SVPTR_2obj(x) (x==NULL?&PL_sv_undef:sv_2mortal(SvREFCNT_inc(x)))\n\n";
+    $code .= "#define ${cnvprefix}sv2_PV(sv) (SvPV(sv, PL_na))\n\n";
+    $code .= "#define ${cnvprefix}PV_2obj(x) (sv_2mortal(newSVpv(x, 0)))\n\n";
+    $code .= "#define ${cnvprefix}sv2_PVnull(sv) (SvOK(sv)?SvPV(sv, PL_na):NULL)\n\n";
+    $code .= "#define ${cnvprefix}PVnull_2obj(x) (x==NULL?&PL_sv_undef:sv_2mortal(newSVpv(x, 0)))\n\n";
     $code .= "#define ${cnvprefix}sv2_IV(sv) SvIV(sv)\n\n";
     $code .= "#define ${cnvprefix}IV_2obj(x) sv_2mortal(newSViv(x))\n\n";
     $code .= "#define ${cnvprefix}sv2_NV(sv) SvNV(sv)\n\n";
@@ -803,7 +822,7 @@ sub typemap_code
             'INPUT' =>
 q[    {
     MAGIC * mg ;
-    if (mg = mg_find (SvRV($arg), '~'))
+    if ((mg = mg_find (SvRV($arg), '~')))
         $var = *(($type *)(mg -> mg_ptr)) ;
     else
         croak (\"$var is not of type $type\") ;
@@ -866,6 +885,12 @@ q[   rv = newSViv(0) ; \\\\
             'OUTPUT' => "        \$arg = SvREFCNT_inc (${cnvprefix}SVPTR_2obj(\$var));",
             'INPUT'  => "        \$var = (\$type)${cnvprefix}sv2_SVPTR(\$arg)",
             },
+        'T_PVnull' => 
+            {
+            'OUTPUT' => "        \$arg = SvREFCNT_inc (${cnvprefix}PVnull_2obj(\$var));",
+            'INPUT'  => "        \$var = (\$type)${cnvprefix}sv2_PVnull(\$arg)",
+            },
+
         },
     }
 

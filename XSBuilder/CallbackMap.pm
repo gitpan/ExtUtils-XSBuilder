@@ -66,3 +66,32 @@ sub parse {
         $entry->{$_} ||= "" for keys %{ $entry };
     }
 }
+
+
+
+sub write {
+    my ($self, $fh, $newentries, $prefix) = @_ ;
+
+    foreach (@$newentries)
+        {
+        my $line = $self -> {wrapxs} -> mapline_func ($_) ;
+
+        if ($line =~ /\)\((.*?)\)/)
+            {
+            my @args = split (/,/, $1) ;
+            $line .= ' | ' if (@args) ;
+            my $i = 0 ;
+            foreach (@args)
+                {
+                $line .= ',' if ($i++ > 0) ;
+                /([^ ]+)$/ ;
+                my $arg = $1 ;
+                $line .= '<' if (/\* \*/) ;
+                $line .= $arg ;
+                }
+            }
+        
+        $fh -> print ($prefix, $line, "\n") ;
+        }
+    }
+

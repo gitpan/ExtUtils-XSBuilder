@@ -137,7 +137,8 @@ sub parse {
         else {
             my @parts = split /\s*\|\s*/ ;
             $map->{$class}->{$parts[0]} = { name      => $parts[0], 
-                                            perl_name => $parts[1] || $parts[0] } ;
+                                            perl_name => $parts[1] || $parts[0],
+                                            type      => $parts[2] } ;
 
         }
     }
